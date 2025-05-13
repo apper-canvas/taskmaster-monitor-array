@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import getIcon from '../utils/iconUtils';
+import { createTask } from '../services/taskService';
 
 // Icons
 const PlusIcon = getIcon('Plus');
@@ -23,6 +24,7 @@ export default function MainFeature({ onAddTask }) {
     deadline: '',
     priority: 'medium'
   });
+  const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
@@ -53,25 +55,31 @@ export default function MainFeature({ onAddTask }) {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-      toast.error('Please fix the errors in the form');
+      toast.error('Please fix the errors in the form.');
       return;
     }
     
-    const newTask = {
-      id: `task-${Date.now()}`,
+    // Prepare task data for creation
+    const taskData = {
       title: formData.title.trim(),
       description: formData.description.trim(),
       deadline: formData.deadline,
-      priority: formData.priority,
-      status: 'pending',
-      createdAt: new Date().toISOString()
+      priority: formData.priority
     };
+
+    try {
+      setSubmitting(true);
+      
+      // Create the task in the database
+      const newTask = await createTask(taskData);
+      
+      // Pass the new task to the parent component
     
     onAddTask(newTask);
     
@@ -82,8 +90,14 @@ export default function MainFeature({ onAddTask }) {
       deadline: '',
       priority: 'medium'
     });
-    
-    setIsExpanded(false);
+      
+      setIsExpanded(false);
+      toast.success('Task added successfully!');
+    } catch (error) {
+      toast.error('Failed to create task. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getPriorityIcon = (priority) => {
@@ -273,7 +287,13 @@ export default function MainFeature({ onAddTask }) {
                   type="submit"
                   className="btn btn-primary flex items-center"
                 >
-                  <CheckIcon className="mr-2 h-4 w-4" />
+                  {submitting ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <><CheckIcon className="mr-2 h-4 w-4" />
                   Add Task
                 </motion.button>
               </div>
